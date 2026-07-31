@@ -1,29 +1,3 @@
-"""
-Generic LSM — ES Optimisation + Training + Inference
-======================================================
-Handles any multivariate time series dataset from:
-  https://github.com/FilippoMB/Time-series-classification-and-clustering-with-Reservoir-Computing
-
-Supports all Paper 3 datasets: ROBOT, JPVOW, WAF, LIB, SWE, CHLO,
-PHAL, CHAR, UWAV, NET, KICK, WALK, PEMS, CMU, AUS
-
-Usage:
-  python lsm_generic.py --dataset ROBOT
-  python lsm_generic.py --dataset JPVOW
-  python lsm_generic.py --dataset WAF
-
-Download datasets:
-  git clone https://github.com/FilippoMB/Time-series-classification-and-clustering-with-Reservoir-Computing
-  # datasets are in the datasets/ folder as .pkl files
-
-Three decoders reported:
-  1. Argmax(L3)  — pure spiking readout (PRIMARY)
-  2. Ridge(L3)   — linear on L3 population counts
-  3. Ridge(L2)   — linear on reservoir states
-
-CER metric used (Steiner et al. TNNLS 2023).
-"""
-
 import os, json, gc, time, argparse, warnings
 from typing import Dict, List, Optional, Tuple
 from dataclasses import dataclass
@@ -73,9 +47,8 @@ CASE_NAMES = {
 NEURONS_PER_CLASS = 10
 
 
-# ===========================================================================
 # 1. DATA LOADING — FilippoMB pkl format
-# ===========================================================================
+
 
 # Zenodo dataset URLs (from FilippoMB reservoir_computing/datasets.py)
 ZENODO_URLS = {
@@ -99,17 +72,7 @@ def load_dataset(name: str,
                  cache_dir: str = "datasets_cache",
                  ) -> Tuple[np.ndarray, np.ndarray,
                             np.ndarray, np.ndarray, int]:
-    """
-    Load dataset from Zenodo (auto-download and cache as .npz).
-    No login required — direct Zenodo URLs.
-
-    Returns:
-      X_train: (N_train, T, n_features)  normalised to [0,1]
-      y_train: (N_train,)  integer labels 0..N_classes-1
-      X_test:  (N_test, T, n_features)
-      y_test:  (N_test,)
-      n_classes: int
-    """
+ 
     import urllib.request
 
     os.makedirs(cache_dir, exist_ok=True)
@@ -184,10 +147,6 @@ def load_dataset(name: str,
     print(f"  Test:  {dict(zip(*np.unique(y_te,return_counts=True)))}")
     return X_tr, y_tr, X_te, y_te, n_cls
 
-
-# ===========================================================================
-# 2. CASE PARAMS
-# ===========================================================================
 
 @dataclass
 class CaseParams:
@@ -288,9 +247,8 @@ def x_to_stdp(x) -> Dict:
     }
 
 
-# ===========================================================================
 # 3. NETWORK BUILDER
-# ===========================================================================
+
 
 def _build(params, stdp, arch, mode, rng,
            w_l2l2=None, w_l2l3=None):
@@ -437,9 +395,9 @@ def _build(params, stdp, arch, mode, rng,
             "L2_ids":L2.tolist(),"L3_ids":L3.tolist()}
 
 
-# ===========================================================================
+
 # 4. INPUT INJECTION + HELPERS
-# ===========================================================================
+
 
 def make_input_map(n_res, n_driven, rng):
     return rng.choice(n_res, size=n_driven, replace=False)
@@ -458,10 +416,9 @@ def clear_input(L2, input_maps):
         for idx in imap:
             nest.SetStatus(L2[int(idx):int(idx)+1], {"I_e": 0.0})
 
-# ===========================================================================
+
 # TEMPORAL ENCODING (place coding — one spike generator per timestep×channel)
-# Matches Verilog implementation: input neuron k fires at timestep k
-# ===========================================================================
+
 def build_temporal_input(X_sample, n_res, n_driven, rng, I_scale=3000.0,
                           threshold=0.0, t_offset=0.5):
     """
@@ -525,27 +482,7 @@ def reset_membrane(L2):
 
 
 def teach(tg, lbl, t_now, T, n_cls, dt=1.0):
-    """
-    Spike-count based teacher — class k gets (k+1) teacher spikes.
-
-    KEY IDEA (user-proposed):
-      Class 0 → 1 spike  → L3[0] fires 1 time
-      Class 1 → 2 spikes → L3[1] fires 2 times
-      Class 2 → 3 spikes → L3[2] fires 3 times
-      ...
-      Class k → (k+1) spikes → L3[k] fires (k+1) times
-
-    Why this works:
-      More teacher spikes = more STDP updates on L2→L3[k]
-      = stronger L2→L3[k] weights after training
-      At test time (no teacher):
-        L3[k] with strongest weights fires most → Argmax picks k
-
-    Works for ANY sequence length T — no timing dependency.
-    Spikes evenly distributed across window for each class.
-
-    All non-target class teachers remain silent.
-    """
+   
     # Silence all teachers
     for k in range(n_cls):
         nest.SetStatus(tg[k:k+1], {"spike_times": []})
@@ -606,12 +543,8 @@ def l3_summed(full, n_cls):
     return full.reshape(n_cls, NEURONS_PER_CLASS).sum(axis=1)
 
 
-# ===========================================================================
-# 5. FITNESS FUNCTION — 5-fold cross-validation (matching Paper 3)
-# ===========================================================================
-# Paper 3 (Steiner et al. 2023): 5-fold CV on training set, minimise MSE
-# Our adaptation:  5-fold CV on training set, maximise macro F1
-# Test set is NEVER seen during optimisation — only used for final report.
+
+# 5. FITNESS FUNCTION — 5-fold cross-validation 
 
 _eval_n = [0]
 
@@ -738,23 +671,7 @@ def evaluate(w_init, d_mean, stdp, arch,
              Xtr, ytr,
              n_epochs=3, seed=42,
              n_folds=5) -> float:
-    """
-    5-fold cross-validation fitness (matching Paper 3 methodology).
-
-    Following Steiner et al. [TNNLS 2023]:
-      - Training set partitioned into n_folds folds
-      - Train on (n_folds-1) folds, validate on held-out fold
-      - Fitness = mean CV F1 across all folds
-      - Test set NEVER passed here — used only for final report
-
-    Args:
-        w_init:   initial/mean recurrent weight (pA)
-        d_mean:   mean propagation delay (ms)
-        stdp:     STDP parameter dict
-        arch:     network architecture dict
-        Xtr/ytr:  training data ONLY — test set not used in CV
-        n_folds:  number of CV folds (default 5, matching Paper 3)
-    """
+  
     global _eval_n
     _eval_n[0] += 1
 
@@ -791,9 +708,9 @@ def evaluate(w_init, d_mean, stdp, arch,
         traceback.print_exc()
         return 0.0
 
-# ===========================================================================
+
 # 6. ES OPTIMISER
-# ===========================================================================
+
 
 
 
@@ -879,9 +796,8 @@ def run_es(fitness_fn, bounds, x0,
     return denorm(best_x), best_f, hist
 
 
-# ===========================================================================
 # 7. FULL TRAINING
-# ===========================================================================
+
 
 def train_case(params, stdp, arch, Xtr, ytr,
                n_epochs=10, seed=1, out_dir=""):
@@ -990,10 +906,7 @@ def train_case(params, stdp, arch, Xtr, ytr,
     return Ftr_l2, Ftr_l3
 
 
-# ===========================================================================
 # 8. INFERENCE
-# ===========================================================================
-
 def infer_case(params, stdp, arch, Xte, out_dir, seed=10):
     n_res = arch["n_res"]
     n_cls = arch["n_classes"]
@@ -1055,9 +968,9 @@ def infer_case(params, stdp, arch, Xte, out_dir, seed=10):
     return Fte_l2, Fte_l3
 
 
-# ===========================================================================
+
 # 9. CLASSIFICATION
-# ===========================================================================
+
 
 def classify(Ftr_l2, Ftr_l3, ytr,
              Fte_l2, Fte_l3, yte,
@@ -1125,9 +1038,8 @@ def classify(Ftr_l2, Ftr_l3, ytr,
             "argmax":res_ax,"ridge_l3":res_rl3,"ridge_l2":res_rl2}
 
 
-# ===========================================================================
 # 10. PLOTS
-# ===========================================================================
+
 
 def _savefig(fig, name, out_dir):
     for ext in ("svg","pdf"):
@@ -1137,10 +1049,7 @@ def _savefig(fig, name, out_dir):
 
 
 def plot_confusion_matrices(all_m, all_p, n_cls, class_names, out_dir):
-    """
-    Confusion matrices for all 3 decoders × 4 cases.
-    Saved as: cm_argmax.pdf/.svg, cm_ridge_l3.pdf/.svg, cm_ridge_l2.pdf/.svg
-    """
+   
     for decoder_key, decoder_title in [
         ("argmax",   "Argmax(L3) — Pure Spiking Readout"),
         ("ridge_l3", "Ridge(L3) — Linear on L3 Population"),
@@ -1180,12 +1089,6 @@ def plot_confusion_matrices(all_m, all_p, n_cls, class_names, out_dir):
 
 
 def plot_weight_histograms(all_p, out_dir):
-    """
-    L2→L2 weight distributions after training.
-    Key plot: shows Cases A/B have spike at fixed weight,
-              Cases C/D have broad distribution.
-    Times New Roman, saved as SVG+PDF.
-    """
     fig, axes = plt.subplots(2, 2, figsize=(13, 9), sharey=False)
     fig.suptitle("Recurrent Synaptic Weight Distributions After STDP Training\n"
                  "(L2→L2 connections)", fontsize=13, fontweight="bold")
@@ -1252,13 +1155,6 @@ def plot_weight_histograms(all_p, out_dir):
 
 
 def plot_delay_histograms(all_p, out_dir):
-    """
-    L2→L2 and L2→L3 delay distributions after training.
-    Key plot: Cases A/C show spike at fixed delay d*
-              Cases B/D show broad distribution U[d_low, d_high]
-    Directly shows the effect of delay heterogeneity on reservoir dynamics.
-    Times New Roman, SVG + PDF.
-    """
     for conn, label_str in [("l2l2", "L2→L2 Recurrent"),
                              ("l2l3", "L2→L3 Readout")]:
         fig, axes = plt.subplots(2, 2, figsize=(13, 9), sharey=False)
@@ -1317,11 +1213,6 @@ def plot_delay_histograms(all_p, out_dir):
 
 
 def plot_per_class_f1(all_m, all_p, n_cls, class_names, out_dir):
-    """
-    Per-class F1 breakdown for all 4 cases.
-    Shows which classes each configuration handles well.
-    One subplot per case, bars per class, 3 decoders overlaid.
-    """
     fig, axes = plt.subplots(2, 2, figsize=(14, 9), sharey=True)
     fig.suptitle("Per-Class F1 Score — All Cases and Decoders",
                  fontsize=13, fontweight="bold")
@@ -1363,11 +1254,6 @@ def plot_per_class_f1(all_m, all_p, n_cls, class_names, out_dir):
 
 
 def plot_es_convergence(stdp_hist, wd_histories, out_dir):
-    """
-    ES convergence curves:
-    Left:  STDP parameter optimisation (Phase 1a)
-    Right: Weight/delay optimisation per case (Phase 1b)
-    """
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     fig.suptitle("ES Optimisation Convergence",
                  fontsize=13, fontweight="bold")
@@ -1408,11 +1294,6 @@ def plot_es_convergence(stdp_hist, wd_histories, out_dir):
 
 
 def plot_l2_activity(all_m, all_p, out_dir):
-    """
-    L2 reservoir spike rate comparison across cases.
-    Shows mean spike rate per reservoir neuron for each case.
-    Reveals how weight/delay configuration affects reservoir dynamics.
-    """
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     fig.suptitle("Reservoir (L2) Activity — Train vs Test",
                  fontsize=13, fontweight="bold")
@@ -1536,9 +1417,8 @@ def plot_all(all_m, all_p, n_cls, out_dir):
     plot_l2_activity(all_m, all_p, out_dir)
 
 
-# ===========================================================================
+
 # 11. MAIN
-# ===========================================================================
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
