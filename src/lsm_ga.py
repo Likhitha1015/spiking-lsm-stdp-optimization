@@ -1,37 +1,5 @@
 """
 LSM — Genetic Algorithm Optimisation
-======================================
-GA-based optimisation for LSM reservoir configurations.
-Mirrors lsm_generic.py exactly but replaces ES with GA.
-
-Based on reference GA code structure:
-  - Tournament selection (top 50% survive)
-  - Uniform crossover (random gene from either parent)
-  - Uniform mutation (random redraw within bounds)
-  - Elitism (best individual always survives)
-
-Fitness: 5-fold CV F1 on training set only (matching Paper 3)
-
-Phase 1a: GA optimises 7 shared STDP params
-Phase 1b: GA optimises w/d per case A/B/C/D independently
-
-Output: GA_DATASET/ folder (same structure as ES output)
-  stdp_params.json
-  case_A/opt_params.json ... case_D/opt_params.json
-  ga_convergence.pdf/.svg
-
-Usage:
-  python lsm_ga.py --dataset ECG   --n_res 200 --n_driven 80
-  python lsm_ga.py --dataset ROBOT --n_res 100 --n_driven 40
-  python lsm_ga.py --dataset JPVOW --n_res 150 --n_driven 60
-
-  # Fast test
-  python lsm_ga.py --dataset ECG --n_res 50 --n_driven 20 \
-    --ga_epochs 2 --n_folds 2 --ga_gen_stdp 5 --ga_gen_wd 3
-
-After GA completes, run training + inference:
-  python lsm_generic.py --dataset ECG --n_res 200 --n_driven 80 \
-    --skip_es --es_dir GA_ECG
 """
 
 import os, json, gc, time, argparse, warnings, random
@@ -79,11 +47,9 @@ from lsm_generic import (
 )
 
 
-# ===========================================================================
 # STDP SEARCH SPACE
-# ===========================================================================
 
-# Parameter space matching your reference GA code structure
+
 param_space = {
     "Aplus":            (1e-5,  0.05),
     "Aminus":           (1e-5,  0.05),
@@ -99,9 +65,8 @@ STDP_KEYS   = list(param_space.keys())
 STDP_X0     = [0.001, 0.001, 20.0, 0.005, 0.005, 100.0, 300.0]
 
 
-# ===========================================================================
 # 5-FOLD CV FITNESS (same as lsm_generic)
-# ===========================================================================
+
 
 _eval_n = [0]
 
@@ -238,9 +203,7 @@ def evaluate(w_init, d_mean, stdp, arch, Xtr, ytr,
         return 0.0
 
 
-# ===========================================================================
 # GENETIC ALGORITHM
-# ===========================================================================
 
 def run_ga(fitness_fn, bounds, popsize=10, n_gen=20,
            mutation_rate=0.2, crossover_rate=0.5,
@@ -279,7 +242,6 @@ def run_ga(fitness_fn, bounds, popsize=10, n_gen=20,
     norm   = lambda x: (x - lo) / (hi - lo + 1e-12)
     denorm = lambda x: lo + x * (hi - lo)
 
-    # ── Individual operations ──────────────────────────────────────────────
 
     def random_individual():
         """Random individual uniformly across [0,1] (normalised space)."""
@@ -304,7 +266,6 @@ def run_ga(fitness_fn, bounds, popsize=10, n_gen=20,
                 new_ind[i] = rng.random()
         return np.clip(new_ind, 0.0, 1.0)
 
-    # ── Initialise population ──────────────────────────────────────────────
     population = [random_individual() for _ in range(popsize)]
     scores     = [fitness_fn(denorm(ind)) for ind in population]
 
@@ -321,7 +282,6 @@ def run_ga(fitness_fn, bounds, popsize=10, n_gen=20,
 
     for gen in range(1, n_gen + 1):
 
-        # ── Selection: rank by fitness, keep top 50% ──────────────────────
         ranked    = sorted(zip(scores, population),
                            key=lambda x: x[0], reverse=True)
         n_keep    = max(2, popsize // 2)
@@ -329,7 +289,7 @@ def run_ga(fitness_fn, bounds, popsize=10, n_gen=20,
         # Scores of survivors (already evaluated)
         surv_scores = [s for s, _ in ranked[:n_keep]]
 
-        # ── Breed children via crossover + mutation ────────────────────────
+
         children = []
         while len(children) < popsize - n_keep:
             p1, p2 = random.sample(survivors, 2)
@@ -337,7 +297,6 @@ def run_ga(fitness_fn, bounds, popsize=10, n_gen=20,
             child  = mutate(child)
             children.append(child)
 
-        # ── Evaluate only new children ─────────────────────────────────────
         child_scores = []
         for child in children:
             f = fitness_fn(denorm(child))
@@ -346,7 +305,6 @@ def run_ga(fitness_fn, bounds, popsize=10, n_gen=20,
         population = survivors + children
         scores     = surv_scores + child_scores
 
-        # ── Update global best (elitism) ───────────────────────────────────
         gen_best = int(np.argmax(scores))
         if scores[gen_best] > best_f:
             best_f = scores[gen_best]
@@ -362,9 +320,7 @@ def run_ga(fitness_fn, bounds, popsize=10, n_gen=20,
     return denorm(best_x), best_f, hist
 
 
-# ===========================================================================
 # CONVERGENCE PLOT
-# ===========================================================================
 
 def plot_ga_convergence(stdp_hist, wd_results, out_dir):
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
@@ -407,11 +363,6 @@ def plot_ga_convergence(stdp_hist, wd_results, out_dir):
                     format=ext)
     plt.close()
     print(f"  Saved → ga_convergence.svg/.pdf")
-
-
-# ===========================================================================
-# MAIN
-# ===========================================================================
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(
@@ -473,7 +424,7 @@ if __name__ == "__main__":
 
     _eval_n[0] = 0
 
-    # ── Phase 1a: STDP optimisation ────────────────────────────────────────
+    #Phase 1a: STDP optimisation
     print(f"\n{'='*60}")
     print(f"  Phase 1a — STDP Optimisation (GA)")
     print(f"  7 params: {STDP_KEYS}")
@@ -502,7 +453,7 @@ if __name__ == "__main__":
         if k != "synapse_model":
             print(f"    {k}: {v:.6f}")
 
-    # ── Phase 1b: weight/delay per case ────────────────────────────────────
+    # Phase 1b: weight/delay per case 
     wd_results = {}
 
     for clbl, cfg in CASE_CONFIGS.items():
@@ -535,10 +486,10 @@ if __name__ == "__main__":
         print(f"  Case {clbl}: CV F1={best_f1:.4f} | {opt_p}")
         print(f"  Saved → {GA_DIR}/case_{clbl}/opt_params.json")
 
-    # ── Convergence plot ───────────────────────────────────────────────────
+
     plot_ga_convergence(stdp_hist, wd_results, GA_DIR)
 
-    # ── Save full comparison JSON ──────────────────────────────────────────
+    #Save full comparison JSON
     summary = {
         "optimiser":    "GA",
         "dataset":      args.dataset,
@@ -553,7 +504,7 @@ if __name__ == "__main__":
     with open(os.path.join(GA_DIR, "ga_summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
 
-    # ── Final summary ──────────────────────────────────────────────────────
+
     total = time.time() - t_start
     print(f"\n{'='*60}")
     print(f"  GA COMPLETE — {args.dataset}  "
