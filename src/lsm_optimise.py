@@ -1,8 +1,7 @@
 """
-LSM Step 1 — Optimisation Only (ES / GA / BO)
-================================================
+Step 1 — Optimisation Only (ES / GA / BO)
 Runs optimisation and saves best params to OPT_DIR/.
-No training, no inference — just finds best hyperparameters.
+just finds best hyperparameters.
 
 Output: OPT_DIR/
   stdp_params.json         — best STDP params + CV F1
@@ -15,23 +14,6 @@ Output: OPT_DIR/
 
 Inspect results then run Step 2:
   python lsm_train_infer.py --dataset ECG --opt_dir OPT_DIR
-
-Usage:
-  # ES (default)
-  python lsm_optimise.py --dataset ECG --n_res 200 --n_driven 80
-
-  # GA
-  python lsm_optimise.py --dataset ECG --n_res 200 --n_driven 80 \
-    --optimiser GA
-
-  # BO
-  python lsm_optimise.py --dataset ECG --n_res 200 --n_driven 80 \
-    --optimiser BO
-
-  # Fast test
-  python lsm_optimise.py --dataset ECG --n_res 50 --n_driven 20 \
-    --es_gen_stdp 3 --es_gen_wd 2 --es_pop 6 \
-    --opt_dir OPT_ECG_test
 """
 
 import os, json, gc, time, argparse, warnings
@@ -75,10 +57,7 @@ from lsm_generic import (
 )
 
 
-# ===========================================================================
 # STDP SEARCH SPACE
-# ===========================================================================
-
 STDP_BOUNDS = [
     (1e-5, 0.05), (1e-5, 0.05), (5.0, 50.0),
     (1e-4, 0.05), (1e-4, 0.05), (20.0, 300.0), (100.0, 800.0),
@@ -163,9 +142,8 @@ CASE_CONFIGS_ROBOT = {
 }
 
 
-# ===========================================================================
+
 # 5-FOLD CV FITNESS
-# ===========================================================================
 
 _eval_n = [0]
 
@@ -299,9 +277,8 @@ def evaluate(w_init, d_mean, stdp, arch, Xtr, ytr,
         return 0.0
 
 
-# ===========================================================================
-# BO OPTIMISER (inline — no extra file needed)
-# ===========================================================================
+
+# BO OPTIMISER 
 
 def run_bo(fitness_fn, bounds, x0, n_calls=50, n_initial=10,
            seed=0, label="", acq_func="EI"):
@@ -338,15 +315,9 @@ def run_bo(fitness_fn, bounds, x0, n_calls=50, n_initial=10,
     return best_x, best_f, running
 
 
-# ===========================================================================
-# CONVERGENCE PLOT
-# ===========================================================================
 
 
-
-# ===========================================================================
 # POST-OPTIMISATION PLOTS
-# ===========================================================================
 
 def plot_cv_f1_bars(wd_results, best_stdp_f1, opt_dir, optimiser):
     """
@@ -445,10 +416,6 @@ def plot_param_table(wd_results, best_stdp, opt_dir, optimiser):
 
 
 def plot_stdp_params(best_stdp, opt_dir, optimiser):
-    """
-    Bar chart of optimised STDP parameters (normalised).
-    Shows relative importance of each STDP component.
-    """
     param_bounds = {
         "Aplus":            (1e-5,  0.05),
         "Aminus":           (1e-5,  0.05),
@@ -510,12 +477,6 @@ def plot_stdp_params(best_stdp, opt_dir, optimiser):
 
 
 def plot_expected_distributions(wd_results, opt_dir):
-    """
-    Preview of expected weight and delay distributions based on optimised params.
-    Shows what the reservoir WILL look like after training.
-    Cases A/C: spike at fixed value
-    Cases B/D: histogram sampled from U[low, high]
-    """
     rng = np.random.default_rng(42)
     n_sample = 1600  # typical n_res × indeg22 = 200 × 8
 
@@ -623,11 +584,6 @@ def plot_convergence(stdp_hist, wd_results, opt_dir, optimiser):
     plt.close()
     print(f"  Saved → convergence_{optimiser.lower()}.svg/.pdf")
 
-
-# ===========================================================================
-# MAIN
-# ===========================================================================
-
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(
         description="LSM Optimisation — ES / GA / BO")
@@ -702,7 +658,7 @@ if __name__ == "__main__":
 
     _eval_n[0] = 0
 
-    # ── Phase 1a: STDP optimisation ────────────────────────────────────────
+    #Phase 1a: STDP optimisation
     print(f"\n{'='*60}")
     print(f"  Phase 1a — STDP ({args.optimiser})")
     print(f"{'='*60}")
@@ -738,7 +694,7 @@ if __name__ == "__main__":
     print(f"\n  STDP best CV F1 = {best_f1:.4f}")
     print(f"  Saved → {OPT_DIR}/stdp_params.json")
 
-    # ── Phase 1b: weight/delay per case ────────────────────────────────────
+    #  Phase 1b: weight/delay per case
     wd_results = {}
 
     for clbl, cfg in (CASE_CONFIGS_ROBOT if args.dataset in SHORT_SEQ_DATASETS else CASE_CONFIGS).items():
@@ -779,15 +735,13 @@ if __name__ == "__main__":
             json.dump(opt_p, f, indent=2)
         print(f"  Case {clbl}: CV F1={f1:.4f} | {opt_p}")
 
-    # ── All post-optimisation plots ────────────────────────────────────────
+
     print(f"\n--- Generating plots → {OPT_DIR}/ ---")
     plot_convergence(stdp_hist, wd_results, OPT_DIR, args.optimiser)
     plot_cv_f1_bars(wd_results, best_f1, OPT_DIR, args.optimiser)
     plot_param_table(wd_results, best_stdp, OPT_DIR, args.optimiser)
     plot_stdp_params(best_stdp, OPT_DIR, args.optimiser)
     plot_expected_distributions(wd_results, OPT_DIR)
-
-    # ── Final summary ──────────────────────────────────────────────────────
     total = time.time() - t_start
     print(f"\n{'='*60}")
     print(f"  OPTIMISATION COMPLETE — {args.dataset} "
