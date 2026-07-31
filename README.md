@@ -1,7 +1,5 @@
 # Controlled Recurrent Heterogeneity in Spiking Liquid State Machines
 
-Implementation for the paper submitted to IEEE Transactions on Neural Networks and Learning Systems (TNNLS).
-
 Code: https://github.com/Likhitha1015/spiking-lsm-stdp-optimization
 
 ## Requirements
@@ -9,12 +7,6 @@ Code: https://github.com/Likhitha1015/spiking-lsm-stdp-optimization
 - NEST Simulator 3.9
 - Python dependencies: `pip install -r requirements.txt`
 
-## NEST Setup via Docker (Recommended)
-
-    docker pull nest/nest-simulator:3.9
-    docker run -it --rm -v $(pwd):/work -w /work nest/nest-simulator:3.9 bash
-
-Or install NEST 3.9 natively: https://nest-simulator.readthedocs.io/en/v3.9/installation/index.html
 
 ## Repository Structure
 
@@ -104,5 +96,3 @@ consistent with the KM-ESN baseline.
       year={2025}
     }
 
-## License
-MIT License
