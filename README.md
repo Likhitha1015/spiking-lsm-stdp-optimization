@@ -7,6 +7,28 @@ Code: https://github.com/Likhitha1015/spiking-lsm-stdp-optimization
 - NEST Simulator 3.9
 - Python dependencies: `pip install -r requirements.txt`
 
+## Environment
+
+All experiments were conducted on a private university HPC server using NEST Simulator 3.9. The official public Docker image can be used to reproduce the environment:
+
+**Docker setup (recommended for reproducibility):**
+
+```bash
+docker pull nest/nest-simulator:3.9
+docker run -it --rm \
+    -v $(pwd):/work \
+    -w /work \
+    nest/nest-simulator:3.9 bash
+```
+
+**Inside the container, install Python dependencies:**
+
+```bash
+pip install scikit-learn scikit-optimize matplotlib
+```
+
+**Native NEST installation:**
+Follow the official guide: https://nest-simulator.readthedocs.io/en/v3.9/installation/index.html
 
 ## Repository Structure
 
