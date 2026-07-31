@@ -88,3 +88,19 @@ Alternatively, install NEST 3.9 natively following the official instructions:
 https://nest-simulator.readthedocs.io/en/v3.9/installation/index.html
 
 The Python NEST bindings (PyNEST) are included with the NEST installation.
+
+## NEST Simulator Setup
+
+NEST 3.9 was run inside a Docker container. To reproduce the exact environment:
+
+    docker pull nest/nest-simulator:3.9
+    docker run -it --rm \
+        -v $(pwd):/work \
+        -w /work \
+        nest/nest-simulator:3.9 \
+        python src/lsm_optimise.py --dataset ECG ...
+
+Alternatively, install NEST 3.9 natively following the official instructions:
+https://nest-simulator.readthedocs.io/en/v3.9/installation/index.html
+
+The Python NEST bindings (PyNEST) are included with the NEST installation.
