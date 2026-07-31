@@ -33,14 +33,6 @@ Features include:
 - 3-Fold Cross-Validation
 - Ridge/L2 evaluation
 - Composite optimization objective combining Macro-F1, CER, and MSE
-
-The notebook automatically generates:
-
-- Best initialization parameters
-- Convergence curves
-- Cross-validation summaries
-- Raster plots
-- Optimization reports
   
 ## Reproduce Results
 
