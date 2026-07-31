@@ -87,12 +87,4 @@ To evaluate directly without re-running NEST:
 Sourced from Zenodo record 10852893 (https://zenodo.org/records/10852893),
 consistent with the KM-ESN baseline.
 
-## Citation
-
-    @article{tnnls2025lsm,
-      title={Controlled Recurrent Heterogeneity in Spiking Liquid State Machines
-             for Multivariate Time-Series Classification},
-      journal={IEEE Transactions on Neural Networks and Learning Systems},
-      year={2025}
-    }
 
