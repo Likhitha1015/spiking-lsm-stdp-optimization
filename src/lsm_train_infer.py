@@ -1,10 +1,5 @@
 """
-LSM Step 2 — Training + Inference + Plots
-==========================================
-Loads optimised params from lsm_optimise.py output.
-Runs full training (n_epochs=10) then inference on test set.
-Generates all paper plots.
-
+Step 2 — Training + Inference + Plots
 Requires lsm_optimise.py to have completed:
   OPT_DIR/stdp_params.json
   OPT_DIR/case_A/opt_params.json  (B, C, D also)
@@ -13,23 +8,6 @@ Requires lsm_optimise.py to have completed:
 Output: RESULTS_DIR/
   case_A/  case_B/  case_C/  case_D/
     w_l2l2.npy, d_l2l2.npy, Ftr_l2.npy, Ftr_l3.npy ...
-  metrics_3decoders.pdf/.svg
-  cm_argmax.pdf/.svg, cm_ridge_l3.pdf/.svg, cm_ridge_l2.pdf/.svg
-  weight_histograms_l2l2.pdf/.svg, delay_histograms_l2l2.pdf/.svg
-  per_class_f1.pdf/.svg, l2_activity.pdf/.svg
-  epoch_accuracy.pdf/.svg, summary_table.pdf/.svg
-  all_results.json
-
-Usage:
-  python lsm_train_infer.py --dataset ECG --opt_dir OPT_ECG_ES
-  python lsm_train_infer.py --dataset ECG --opt_dir OPT_ECG_GA
-  python lsm_train_infer.py --dataset ECG --opt_dir OPT_ECG_BO
-
-  # Train only specific cases
-  python lsm_train_infer.py --dataset ECG --opt_dir OPT_ECG_ES --cases C D
-
-  # Skip inference (re-plot only)
-  python lsm_train_infer.py --dataset ECG --opt_dir OPT_ECG_ES --skip_infer
 """
 
 import os, json, gc, time, argparse, warnings
@@ -80,12 +58,11 @@ from lsm_generic import (
 )
 
 
-# ===========================================================================
+
 # LOAD OPTIMISED PARAMS
-# ===========================================================================
+
 
 def load_opt_params(opt_dir, case_label):
-    """Load STDP and case w/d params from optimisation output directory."""
     stdp_path = os.path.join(opt_dir, "stdp_params.json")
     case_path = os.path.join(opt_dir, f"case_{case_label}", "opt_params.json")
 
@@ -115,13 +92,10 @@ def load_opt_params(opt_dir, case_label):
     return stdp, params
 
 
-# ===========================================================================
 # TRAINING
-# ===========================================================================
 
 def train_case(params, stdp, arch, Xtr, ytr,
                n_epochs=10, seed=10, out_dir=""):
-    """Full training on all training data. Saves weights, features, plots."""
     n_res  = arch["n_res"]
     n_cls  = arch["n_classes"]
     n_ch   = arch["n_features"]
@@ -237,12 +211,10 @@ def train_case(params, stdp, arch, Xtr, ytr,
     return Ftr_l2, Ftr_l3, accs
 
 
-# ===========================================================================
+
 # INFERENCE
-# ===========================================================================
 
 def infer_case(params, stdp, arch, Xte, out_dir, seed=10):
-    """Inference with frozen trained weights. Same seed as training."""
     n_res = arch["n_res"]
     n_cls = arch["n_classes"]
     n_ch  = arch["n_features"]
@@ -312,9 +284,7 @@ def infer_case(params, stdp, arch, Xte, out_dir, seed=10):
     return Fte_l2, Fte_l3
 
 
-# ===========================================================================
-# CLASSIFICATION — 3 decoders
-# ===========================================================================
+
 
 def classify(Ftr_l2, Ftr_l3, ytr, Fte_l2, Fte_l3, yte,
              label, n_cls, class_names=None):
@@ -377,7 +347,7 @@ def classify(Ftr_l2, Ftr_l3, ytr, Fte_l2, Fte_l3, yte,
     clf_l3.fit(sc1.fit_transform(Ftr_l3), ytr)
     res_rl3 = _score(yte, clf_l3.predict(sc1.transform(Fte_l3)), "Ridge(L3)")
 
-    # Ridge(L2) — reservoir states (Paper 3 comparison metric)
+    # Ridge(L2) — reservoir states (Paper comparison metric)
     # Use SampleNorm instead of StandardScaler to fix train/test activity mismatch
     clf_l2  = RidgeClassifier(alpha=args.ridge_alpha, class_weight="balanced")
     clf_l2.fit(_apply_norm(Ftr_l2), ytr)
@@ -401,9 +371,6 @@ def classify(Ftr_l2, Ftr_l3, ytr, Fte_l2, Fte_l3, yte,
             "argmax": res_ax, "ridge_l3": res_rl3, "ridge_l2": res_rl2}
 
 
-# ===========================================================================
-# PLOTS — all Times New Roman, SVG + PDF
-# ===========================================================================
 
 def _savefig(fig, name, out_dir):
     for ext in ("svg", "pdf"):
@@ -604,10 +571,6 @@ def plot_summary_table(all_m, all_p, out_dir):
     plt.tight_layout()
     _savefig(fig, "summary_table", out_dir)
 
-
-# ===========================================================================
-# MAIN
-# ===========================================================================
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(
