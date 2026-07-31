@@ -1,42 +1,4 @@
-"""
-LSM — Bayesian Optimisation
-==============================
-BO-based optimisation for LSM reservoir configurations.
-Mirrors lsm_ga.py structure but uses Gaussian Process surrogate.
 
-Key advantage over ES and GA:
-  - Most sample-efficient: builds a surrogate model of the fitness
-    landscape and picks next candidate intelligently (not randomly)
-  - Fewer NEST evaluations needed for same quality result
-  - Expected Improvement (EI) acquisition: balances exploration/exploitation
-
-Library: scikit-optimize (skopt) — GP surrogate with EI acquisition
-
-Phase 1a: BO optimises 7 shared STDP params
-Phase 1b: BO optimises w/d per case A/B/C/D independently
-
-Fitness: 5-fold CV F1 on training set only (matching Paper 3)
-
-Output: BO_DATASET/ folder (same structure as ES/GA output)
-  stdp_params.json
-  case_A/opt_params.json ... case_D/opt_params.json
-  bo_convergence.pdf/.svg
-
-Usage:
-  python lsm_bo.py --dataset ECG   --n_res 200 --n_driven 80
-  python lsm_bo.py --dataset ROBOT --n_res 100 --n_driven 40
-  python lsm_bo.py --dataset JPVOW --n_res 150 --n_driven 60
-
-  # Fast test
-  python lsm_bo.py --dataset ECG --n_res 50 --n_driven 20 \
-    --bo_epochs 2 --n_folds 2 \
-    --bo_calls_stdp 10 --bo_init_stdp 5 \
-    --bo_calls_wd 8  --bo_init_wd 4
-
-After BO completes, run training + inference:
-  python lsm_generic.py --dataset ECG --n_res 200 --n_driven 80 \
-    --skip_es --es_dir BO_ECG
-"""
 
 import os, json, gc, time, argparse, warnings
 from typing import Dict, List, Optional, Tuple
@@ -85,9 +47,7 @@ from lsm_generic import (
 )
 
 
-# ===========================================================================
 # STDP SEARCH SPACE
-# ===========================================================================
 
 param_space = {
     "Aplus":            (1e-5,  0.05),
@@ -104,9 +64,7 @@ STDP_KEYS   = list(param_space.keys())
 STDP_X0     = [0.001, 0.001, 20.0, 0.005, 0.005, 100.0, 300.0]
 
 
-# ===========================================================================
 # 5-FOLD CV FITNESS (same as lsm_ga / lsm_generic)
-# ===========================================================================
 
 _eval_n = [0]
 
@@ -239,31 +197,14 @@ def evaluate(w_init, d_mean, stdp, arch, Xtr, ytr,
         return 0.0
 
 
-# ===========================================================================
+
 # BAYESIAN OPTIMISATION
-# ===========================================================================
 
 def run_bo(fitness_fn, bounds, x0,
            n_calls=50, n_initial=10,
            seed=0, label=""):
     """
-    Bayesian Optimisation with Gaussian Process surrogate.
-
-    How it works:
-      1. Evaluate n_initial random points (exploration)
-      2. Fit GP surrogate model to observed (x, f(x)) pairs
-      3. Use Expected Improvement (EI) to select next candidate:
-           EI balances: exploit high-predicted regions
-                        explore high-uncertainty regions
-      4. Evaluate fitness at selected candidate
-      5. Update GP model with new observation
-      6. Repeat steps 3-5 until n_calls exhausted
-
-    Key advantage over ES/GA:
-      - Each evaluation informs the next one (sequential, model-based)
-      - Typically needs 3-5x fewer evaluations than ES/GA for same quality
-      - Especially effective for expensive fitness functions (ours: ~30s each)
-
+    
     Args:
         fitness_fn:  callable(x) → float (higher = better)
         bounds:      list of (low, high) tuples
@@ -321,9 +262,9 @@ def run_bo(fitness_fn, bounds, x0,
     return best_x, best_f, running_best
 
 
-# ===========================================================================
+
 # CONVERGENCE PLOT
-# ===========================================================================
+
 
 def plot_bo_convergence(stdp_hist, wd_results, out_dir):
     fig, axes = plt.subplots(1, 2, figsize=(13, 5))
@@ -372,10 +313,6 @@ def plot_bo_convergence(stdp_hist, wd_results, out_dir):
     plt.close()
     print(f"  Saved → bo_convergence.svg/.pdf")
 
-
-# ===========================================================================
-# MAIN
-# ===========================================================================
 
 if __name__ == "__main__":
     ap = argparse.ArgumentParser(
@@ -468,7 +405,7 @@ if __name__ == "__main__":
         if k != "synapse_model":
             print(f"    {k}: {v:.6f}")
 
-    # ── Phase 1b: weight/delay per case ────────────────────────────────────
+    #Phase 1b: weight/delay per case
     wd_results = {}
 
     for clbl, cfg in CASE_CONFIGS.items():
@@ -504,10 +441,8 @@ if __name__ == "__main__":
               f"(in {len(hist)} evals) | {opt_p}")
         print(f"  Saved → {BO_DIR}/case_{clbl}/opt_params.json")
 
-    # ── Convergence plot ───────────────────────────────────────────────────
+    #Convergence plot 
     plot_bo_convergence(stdp_hist, wd_results, BO_DIR)
-
-    # ── Save summary JSON ──────────────────────────────────────────────────
     total = time.time() - t_start
     summary = {
         "optimiser":       "BO",
@@ -527,7 +462,7 @@ if __name__ == "__main__":
     with open(os.path.join(BO_DIR, "bo_summary.json"), "w") as f:
         json.dump(summary, f, indent=2)
 
-    # ── Final summary ──────────────────────────────────────────────────────
+    #Final summary
     print(f"\n{'='*60}")
     print(f"  BO COMPLETE — {args.dataset}  ({total/3600:.2f} hr)")
     print(f"{'='*60}")
