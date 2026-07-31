@@ -10,11 +10,38 @@ Code: https://github.com/Likhitha1015/spiking-lsm-stdp-optimization
 
 ## Repository Structure
 
-    src/        Core pipeline (LSM, optimization, training, evaluation)
+    src/
+    ├── Core LSM pipeline (training, optimization, evaluation)
+    └── LSM initialization optimization notebook
     datasets/   Five benchmark NPZ files (ECG, PHAL, WAF, ROBOT, JPVOW)
     results/    Saved optimization params and reservoir features per dataset
     scripts/    Shell scripts to reproduce experiments
 
+## Additional Experimental Pipeline
+
+In addition to the main two-stage STDP and recurrent heterogeneity framework, the repository also includes an independent Liquid State Machine (LSM) initialization optimization pipeline:
+
+    src/lsm_initialisation_optimizer.ipynb
+
+This notebook investigates optimization of the initial reservoir configuration while keeping the STDP learning rule fixed, providing a complementary study to the adaptive STDP framework.
+
+Features include:
+
+- Bayesian Optimization (BO)
+- Evolution Strategies (ES)
+- Genetic Algorithms (GA)
+- 3-Fold Cross-Validation
+- Ridge/L2 evaluation
+- Composite optimization objective combining Macro-F1, CER, and MSE
+
+The notebook automatically generates:
+
+- Best initialization parameters
+- Convergence curves
+- Cross-validation summaries
+- Raster plots
+- Optimization reports
+  
 ## Reproduce Results
 
 ### Step 1: Optimize (Stage I + II)
@@ -82,6 +109,23 @@ Pre-computed optimization parameters and reservoir features are included in resu
 To evaluate directly without re-running NEST:
 
     python evaluate.py --dataset ECG --results_dir results/RESULTS_ECG
+
+## Running the Initialization Optimization Pipeline
+
+The repository also provides an independent notebook for optimizing LSM initialization parameters.
+
+Open
+
+    src/lsm_initialisation_optimizer.ipynb
+
+The notebook contains complete execution instructions and supports:
+
+- FAST mode for quick verification
+- Full optimization mode
+- Automatic execution of BO, ES, and GA
+- Automatic generation of output folders, convergence plots, and best parameter files
+
+By default, the notebook evaluates the ECG benchmark dataset, but the dataset loader can be modified to use other benchmark datasets.
 
 ## Datasets
 Sourced from Zenodo record 10852893 (https://zenodo.org/records/10852893),
