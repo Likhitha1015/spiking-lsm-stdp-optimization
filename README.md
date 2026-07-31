@@ -83,15 +83,6 @@ Note: n_driven=20, I_scale=3000, indeg22=15, indeg23=30 are fixed across all dat
 | C    | Distributed | Fixed       |
 | D    | Distributed | Distributed |
 
-## Best Results
-
-| Dataset | Case | Opt | CER   | F1    | KM-ESN CER |
-|---------|------|-----|-------|-------|------------|
-| ECG     | A    | BO  | 0.150 | 0.803 | 0.180      |
-| PHAL    | C    | GA  | 0.317 | 0.570 | 0.320      |
-| WAF     | C    | BO  | 0.110 | 0.754 | 0.030      |
-| ROBOT   | A    | GA  | 0.563 | 0.373 | 0.450      |
-| JPVOW   | B    | BO  | 0.346 | 0.575 | 0.080      |
 
 ## Skip Optimization — Use Saved Results
 
