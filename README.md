@@ -76,7 +76,7 @@ Note: n_driven=20, I_scale=3000, indeg22=15, indeg23=30 are fixed across all dat
 | D    | Distributed | Distributed |
 
 
-## Skip Optimization — Use Saved Results
+## Skip Optimization - Use Saved Results
 
 Pre-computed optimization parameters and reservoir features are included in results/.
 To evaluate directly without re-running NEST:
