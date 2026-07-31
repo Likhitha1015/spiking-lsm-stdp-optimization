@@ -1,0 +1,14 @@
+{
+  "stdp": {
+    "synapse_model": "stdp_triplet_synapse",
+    "Aplus": 0.04248277797697037,
+    "Aminus": 0.025615241207949325,
+    "tau_plus": 49.783653051154154,
+    "Aplus_triplet": 0.00019040331650141927,
+    "Aminus_triplet": 0.013139065736582786,
+    "tau_plus_triplet": 22.439191326119268,
+    "Wmax": 204.9806978790749
+  },
+  "f1": 0.03376788345064659,
+  "optimiser": "BO"
+}

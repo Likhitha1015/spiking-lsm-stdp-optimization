@@ -1,0 +1,10 @@
+{
+  "n_res": 600,
+  "n_classes": 5,
+  "n_features": 6,
+  "indeg22": 8,
+  "indeg23": 30,
+  "n_driven": 20,
+  "I_scale": 8000.0,
+  "dataset": "ROBOT"
+}

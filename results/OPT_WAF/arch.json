@@ -1,0 +1,10 @@
+{
+  "n_res": 600,
+  "n_classes": 2,
+  "n_features": 6,
+  "indeg22": 15,
+  "indeg23": 30,
+  "n_driven": 20,
+  "I_scale": 3000.0,
+  "dataset": "WAF"
+}
